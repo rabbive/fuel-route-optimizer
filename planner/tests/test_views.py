@@ -127,6 +127,7 @@ class RouteViewTests(TestCase):
         self.assertContains(response, "function esc(")
         self.assertContains(response, "strict-origin-when-cross-origin")
         self.assertContains(response, "getSize().x")
+        self.assertContains(response, "offsetHeight")
 
     def test_home_page_shows_empty_form(self, get_route):
         """Open an empty map and city form without calling routing."""

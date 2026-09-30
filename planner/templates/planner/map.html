@@ -89,11 +89,11 @@
     } else {
       // Draw the route and zoom the map to fit it.
       const route = L.geoJSON(trip.route, { style: { color: "#2563eb", weight: 5 } }).addTo(map);
-      // Leave room for the totals box only when the map is wide enough.
+      // Reserve space for whichever panel overlaps the map at this width.
       const wide = map.getSize().x > 700;
       map.fitBounds(route.getBounds(), wide
         ? { paddingTopLeft: [30, 30], paddingBottomRight: [300, 30] }
-        : { padding: [20, 20] });
+        : { paddingTopLeft: [20, document.getElementById("route-form").offsetHeight + 20], paddingBottomRight: [20, 20] });
 
       // Start and finish pins.
       L.marker([trip.start.lat, trip.start.lon]).addTo(map).bindPopup("Start: " + esc(trip.start.query));

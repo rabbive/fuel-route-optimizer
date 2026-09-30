@@ -25,6 +25,7 @@ Run the tests: `.venv/bin/python manage.py test planner`
 ## API
 
 `GET /api/cities/?q=chica` returns city suggestions from the local city table, with no external calls.
+Suggestions rank exact matches first, then cities with more fuel stations (a size proxy), so big cities surface first; keep typing to narrow (e.g. `houst` → Houston, TX).
 
 `GET /api/route/?start=Chicago, IL&finish=Dallas, TX`
 
