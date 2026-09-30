@@ -11,10 +11,10 @@
   ],
   "item": [
     {
-      "name": "City suggestions (q=chi)",
+      "name": "City suggestions (q=chica)",
       "request": {
         "method": "GET",
-        "url": "{{base_url}}/api/cities/?q=chi"
+        "url": "{{base_url}}/api/cities/?q=chica"
       },
       "event": [
         {

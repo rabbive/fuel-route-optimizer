@@ -24,7 +24,7 @@ Run the tests: `.venv/bin/python manage.py test planner`
 
 ## API
 
-`GET /api/cities/?q=chi` returns city suggestions from the local city table, with no external calls.
+`GET /api/cities/?q=chica` returns city suggestions from the local city table, with no external calls.
 
 `GET /api/route/?start=Chicago, IL&finish=Dallas, TX`
 
