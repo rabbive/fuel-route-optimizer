@@ -7,9 +7,11 @@ from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 
 from .corridor import resample_route, stations_near_route
-from .geocode import CityNotFound, city_key, find_city
+from .geocode import CityNotFound, find_city
+from .models import City
 from .optimizer import UnreachableError, plan_fuel_stops
 from .routing import NoRouteError, RoutingError, get_route
 
@@ -40,24 +42,30 @@ class RouteForm(forms.Form):
         return parse_city_state(self.cleaned_data["finish"])
 
 
+# CSRF is unnecessary here because this view only accepts GET and never changes state.
+@csrf_exempt
 def route(request):
     """Return the route, the cheapest fuel stops and the total fuel cost (JSON, or a map page)."""
+    if request.method != "GET":
+        return error_response(405, "Only GET is supported.")
     form = RouteForm(request.GET)
     if not form.is_valid():
         field, errors = next(iter(form.errors.items()))
         return error_response(400, f"{field}: {errors[0]}")
     start, finish = form.cleaned_data["start"], form.cleaned_data["finish"]
+    try:
+        start_city, finish_city = find_city(*start), find_city(*finish)
+    except CityNotFound as exc:
+        return error_response(404, str(exc))
 
-    # Same cities (however they were typed) in the same order share one cache entry.
-    cache_key = "trip:" + "|".join(f"{city_key(city)},{state}" for city, state in (start, finish))
+    # Spellings that resolve to the same cities in the same order share one cache entry.
+    cache_key = f"trip:{start_city.pk}:{finish_city.pk}"
     trip = cache.get(cache_key)
     if trip is not None:
         trip = {**trip, "cached": True, "routing_api_calls": 0}
     else:
         try:
-            trip = plan_trip(start, finish)
-        except CityNotFound as exc:
-            return error_response(404, str(exc))
+            trip = plan_trip(start_city, finish_city)
         except (NoRouteError, UnreachableError) as exc:
             return error_response(422, str(exc))
         except RoutingError as exc:
@@ -72,9 +80,8 @@ def route(request):
     return JsonResponse(trip)
 
 
-def plan_trip(start: tuple[str, str], finish: tuple[str, str]) -> dict:
-    """The whole pipeline: find the cities, make at most ONE routing call, match stations, pick fuel stops."""
-    start_city, finish_city = find_city(*start), find_city(*finish)
+def plan_trip(start_city: City, finish_city: City) -> dict:
+    """Make at most one routing call, match stations, and pick fuel stops."""
     if start_city.pk == finish_city.pk:
         # Same city: a zero-length route, so no routing call is needed.
         coordinates, routing_api_calls = [[start_city.lon, start_city.lat]] * 2, 0

@@ -3,8 +3,9 @@
 from unittest.mock import patch
 
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import Client, TestCase
 
+from planner.geocode import find_city
 from planner.models import City, FuelStation
 from planner.routing import NoRouteError, RoutingError
 
@@ -70,6 +71,17 @@ class RouteViewTests(TestCase):
         self.assertTrue(response.json()["cached"])
         self.assertEqual(get_route.call_count, 1)
 
+    def test_alias_spelling_shares_cache(self, get_route):
+        """Reuse the trip when another spelling resolves to the same city."""
+        with patch("planner.views.find_city", wraps=find_city) as lookup:
+            lookup.side_effect = lambda name, state: find_city("Chicago" if name == "Chi Town" else name, state)
+            self.get()
+            second = self.get(start="Chi Town, IL")
+
+        self.assertEqual(second.status_code, 200)
+        self.assertTrue(second.json()["cached"])
+        self.assertEqual(get_route.call_count, 1)
+
     def test_reversed_trip_is_not_served_from_cache(self, get_route):
         """Reversed trip is not served from cache."""
         self.get()
@@ -105,6 +117,14 @@ class RouteViewTests(TestCase):
         self.assertContains(response, "leaflet")
         self.assertContains(response, "trip-data")
         self.assertContains(response, "function esc(")
+        self.assertContains(response, "strict-origin-when-cross-origin")
+
+    def test_post_is_405_json(self, get_route):
+        """Reject POST with JSON even when CSRF checks are enabled."""
+        response = Client(enforce_csrf_checks=True).post(URL)
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(response.json(), {"error": "Only GET is supported."})
+        get_route.assert_not_called()
 
     def test_missing_finish_is_400(self, get_route):
         """Missing finish is 400."""
