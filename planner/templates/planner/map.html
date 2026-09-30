@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fuel route: {{ trip.start.query }} to {{ trip.finish.query }}</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    #summary {
+      position: absolute; top: 10px; right: 10px; z-index: 1000;
+      background: white; padding: 10px 14px; border-radius: 6px;
+      font: 14px/1.5 sans-serif; box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="summary">
+    <strong>{{ trip.start.query }} → {{ trip.finish.query }}</strong><br>
+    {{ trip.total_distance_miles }} miles · {{ trip.fuel_stops|length }} fuel stops<br>
+    {{ trip.total_gallons }} gallons · <strong>${{ trip.total_fuel_cost }}</strong>
+  </div>
+
+  {{ trip|json_script:"trip-data" }}
+  <script>
+    // Read the trip JSON that Django put into the page.
+    const trip = JSON.parse(document.getElementById("trip-data").textContent);
+    const map = L.map("map");
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    // Draw the route and zoom the map to fit it.
+    const route = L.geoJSON(trip.route, { style: { color: "#2563eb", weight: 5 } }).addTo(map);
+    map.fitBounds(route.getBounds(), { padding: [30, 30] });
+
+    // Start and finish pins.
+    L.marker([trip.start.lat, trip.start.lon]).addTo(map).bindPopup("Start: " + trip.start.query);
+    L.marker([trip.finish.lat, trip.finish.lon]).addTo(map).bindPopup("Finish: " + trip.finish.query);
+
+    // One orange dot per fuel stop, with the details in its popup.
+    trip.fuel_stops.forEach((stop, i) => {
+      L.circleMarker([stop.lat, stop.lon], { radius: 8, color: "#ea580c", fillOpacity: 0.9 })
+        .addTo(map)
+        .bindPopup(
+          `<b>Stop ${i + 1}: ${stop.name}</b><br>${stop.address}, ${stop.city}, ${stop.state}<br>` +
+          `Mile ${stop.mile_marker} · $${stop.price_per_gallon}/gal<br>${stop.gallons} gal = $${stop.cost}`
+        );
+    });
+  </script>
+</body>
+</html>
