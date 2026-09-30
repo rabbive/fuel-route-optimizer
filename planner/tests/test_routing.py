@@ -33,7 +33,7 @@ class GetRouteTests(SimpleTestCase):
         self.assertEqual(url, "https://ors.example/v2/directions/driving-car/geojson")
         self.assertEqual(
             post.call_args.kwargs["json"],
-            {"coordinates": [[-87.6, 41.9], [-96.8, 32.8]], "instructions": False},
+            {"coordinates": [[-87.6, 41.9], [-96.8, 32.8]], "instructions": False, "radiuses": [-1, -1]},
         )
         self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "test-key")
         self.assertEqual(post.call_args.kwargs["timeout"], 30)
@@ -55,6 +55,16 @@ class GetRouteTests(SimpleTestCase):
         """Report authorization failures as routing errors."""
         with self.assertRaisesRegex(RoutingError, "403.*disallowed"):
             get_route((41.9, -87.6), (32.8, -96.8))
+
+    @override_settings(ORS_API_KEY="")
+    @patch("planner.routing.requests.post", return_value=fake_response(200, GEOJSON))
+    def test_missing_key_is_routing_error(self, post):
+        """Explain setup without calling ORS when the key is missing."""
+        with self.assertRaisesRegex(
+            RoutingError, r"ORS_API_KEY is not set\. Copy \.env\.example to \.env and add your key\."
+        ):
+            get_route((41.9, -87.6), (32.8, -96.8))
+        post.assert_not_called()
 
     @patch("planner.routing.requests.post", side_effect=requests.Timeout("slow"))
     def test_timeout_is_routing_error(self, post):

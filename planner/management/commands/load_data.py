@@ -51,6 +51,8 @@ class Command(BaseCommand):
                 self.add_city(cities, inside[1], row)
             if name.endswith(" City"):  # "Boise City" -> "Boise"
                 self.add_city(cities, name[: -len(" City")], row)
+            if name.startswith("Urban "):  # "Urban Honolulu" -> "Honolulu"
+                self.add_city(cities, name[len("Urban "):], row)
 
         City.objects.all().delete()
         City.objects.bulk_create(cities.values())

@@ -20,10 +20,13 @@ def get_route(start: tuple[float, float], finish: tuple[float, float]) -> list[l
 
     Returns the route line as a list of [lon, lat] points (the GeoJSON order).
     """
+    if not settings.ORS_API_KEY:
+        raise RoutingError("ORS_API_KEY is not set. Copy .env.example to .env and add your key.")
     url = f"{settings.ORS_BASE_URL}/v2/directions/driving-car/geojson"
     body = {
         "coordinates": [[start[1], start[0]], [finish[1], finish[0]]],  # ORS wants [lon, lat]
         "instructions": False,  # we only need the route line, not turn-by-turn directions
+        "radiuses": [-1, -1],  # city centers can be far from a road; -1 lets ORS snap to the nearest road at any distance
     }
     try:
         response = requests.post(

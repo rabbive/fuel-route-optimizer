@@ -11,6 +11,7 @@ from planner.models import City, FuelStation
 
 PLACES = """USPS|NAME|INTPTLAT|INTPTLONG
 IL|Chicago city|41.837|-87.685
+HI|Urban Honolulu CDP|21.33|-157.85
 TN|Nashville-Davidson metropolitan government (balance)|36.17|-86.78
 MO|St. Louis city|38.63|-90.24
 OK|Oklahoma City city|35.47|-97.51
@@ -92,6 +93,7 @@ class LoadDataTests(TestCase):
         self.assertEqual(find_city("Carson City", "NV").lat, 39.15)
         self.assertEqual(find_city("Ventura", "CA").lat, 34.27)
         self.assertEqual(find_city("Boise", "ID").lat, 43.60)
+        self.assertEqual(find_city("Honolulu", "HI").lat, 21.33)
         self.assertEqual(find_city("Agua Dulce", "TX").lat, 27.78)
 
     def test_load_data_can_run_twice(self):
