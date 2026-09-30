@@ -18,9 +18,13 @@ cp .env.example .env               # then paste your free ORS key into .env
 .venv/bin/python manage.py runserver
 ```
 
+Then open http://127.0.0.1:8000/ to plan a trip in the browser (type a city, pick a suggestion, press Plan route).
+
 Run the tests: `.venv/bin/python manage.py test planner`
 
 ## API
+
+`GET /api/cities/?q=chi` returns city suggestions from the local city table, with no external calls.
 
 `GET /api/route/?start=Chicago, IL&finish=Dallas, TX`
 
@@ -38,7 +42,9 @@ The response contains:
 - `map_url`
 - `routing_api_calls` and `cached`
 
-Errors are `{"error": "..."}`:
+JSON errors are `{"error": "..."}`. With `format=map`, trip errors appear on the map page with the same status code and retained input. Non-GET requests always return JSON 405.
+
+Error status codes:
 
 | Code | When |
 |---|---|

@@ -11,6 +11,27 @@
   ],
   "item": [
     {
+      "name": "City suggestions (q=chi)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/cities/?q=chi"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"City suggestions are local city names\", function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().cities).to.be.an(\"array\").that.includes(\"Chicago, IL\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Chicago, IL -> Dallas, TX",
       "request": {
         "method": "GET",

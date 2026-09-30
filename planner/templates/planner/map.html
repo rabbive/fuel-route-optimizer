@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Fuel route: {{ trip.start.query }} to {{ trip.finish.query }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if trip %}Fuel route: {{ trip.start.query }} to {{ trip.finish.query }}{% else %}Fuel route planner{% endif %}</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -13,18 +14,60 @@
       max-width: calc(100% - 80px);
       font: 14px/1.5 sans-serif; box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
     }
+    #route-form { display: grid; gap: 6px; margin-bottom: 10px; }
+    #route-form input, #route-form button { font: inherit; padding: 6px; min-width: 0; }
+    .error { color: #b91c1c; }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <div id="summary">
+    <form id="route-form" method="get" action="{% url 'route' %}">
+      <label for="start">From</label>
+      <input id="start" name="start" value="{{ start }}" placeholder="Chicago, IL" list="city-options" required>
+      <label for="finish">To</label>
+      <input id="finish" name="finish" value="{{ finish }}" placeholder="Dallas, TX" list="city-options" required>
+      <input type="hidden" name="format" value="map">
+      <button type="submit">Plan route</button>
+    </form>
+    <datalist id="city-options"></datalist>
+    {% if trip %}
     <strong>{{ trip.start.query }} → {{ trip.finish.query }}</strong><br>
     {{ trip.total_distance_miles }} miles · {{ trip.fuel_stops|length }} fuel stops<br>
     {{ trip.total_gallons }} gallons · <strong>${{ trip.total_fuel_cost|floatformat:2 }}</strong>
+    {% endif %}
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
   </div>
 
   {{ trip|json_script:"trip-data" }}
   <script>
+    const options = document.getElementById("city-options");
+    let timer, latestInput = 0;
+    document.querySelectorAll('input[list="city-options"]').forEach((input) => {
+      input.addEventListener("input", () => {
+        clearTimeout(timer);
+        options.replaceChildren();
+        const currentInput = ++latestInput;
+        const query = input.value.trim();
+        if (query.length < 2) return;
+        timer = setTimeout(async () => {
+          try {
+            const response = await fetch("{% url 'cities' %}?q=" + encodeURIComponent(query));
+            if (!response.ok) return;
+            const data = await response.json();
+            if (currentInput !== latestInput) return;
+            options.replaceChildren(...data.cities.map((city) => {
+              const option = document.createElement("option");
+              option.value = city;
+              return option;
+            }));
+          } catch {
+            // The form still works when suggestions are unavailable.
+          }
+        }, 150);
+      });
+    });
+
     // Read the trip JSON that Django put into the page.
     const trip = JSON.parse(document.getElementById("trip-data").textContent);
     // Escape text before Leaflet inserts it into popup HTML.
@@ -41,27 +84,31 @@
       attribution: "&copy; OpenStreetMap contributors",
     }).addTo(map);
 
-    // Draw the route and zoom the map to fit it.
-    const route = L.geoJSON(trip.route, { style: { color: "#2563eb", weight: 5 } }).addTo(map);
-    // Leave room for the totals box only when the map is wide enough.
-    const wide = map.getSize().x > 700;
-    map.fitBounds(route.getBounds(), wide
-      ? { paddingTopLeft: [30, 30], paddingBottomRight: [300, 30] }
-      : { padding: [20, 20] });
+    if (!trip) {
+      map.setView([39.5, -98.35], 4);
+    } else {
+      // Draw the route and zoom the map to fit it.
+      const route = L.geoJSON(trip.route, { style: { color: "#2563eb", weight: 5 } }).addTo(map);
+      // Leave room for the totals box only when the map is wide enough.
+      const wide = map.getSize().x > 700;
+      map.fitBounds(route.getBounds(), wide
+        ? { paddingTopLeft: [30, 30], paddingBottomRight: [300, 30] }
+        : { padding: [20, 20] });
 
-    // Start and finish pins.
-    L.marker([trip.start.lat, trip.start.lon]).addTo(map).bindPopup("Start: " + esc(trip.start.query));
-    L.marker([trip.finish.lat, trip.finish.lon]).addTo(map).bindPopup("Finish: " + esc(trip.finish.query));
+      // Start and finish pins.
+      L.marker([trip.start.lat, trip.start.lon]).addTo(map).bindPopup("Start: " + esc(trip.start.query));
+      L.marker([trip.finish.lat, trip.finish.lon]).addTo(map).bindPopup("Finish: " + esc(trip.finish.query));
 
-    // One orange dot per fuel stop, with the details in its popup.
-    trip.fuel_stops.forEach((stop, i) => {
-      L.circleMarker([stop.lat, stop.lon], { radius: 8, color: "#ea580c", fillOpacity: 0.9 })
-        .addTo(map)
-        .bindPopup(
-          `<b>Stop ${i + 1}: ${esc(stop.name)}</b><br>${esc(stop.address)}, ${esc(stop.city)}, ${esc(stop.state)}<br>` +
-          `Mile ${stop.mile_marker} · $${Number(stop.price_per_gallon).toFixed(3)}/gal<br>${stop.gallons} gal = $${Number(stop.cost).toFixed(2)}`
-        );
-    });
+      // One orange dot per fuel stop, with the details in its popup.
+      trip.fuel_stops.forEach((stop, i) => {
+        L.circleMarker([stop.lat, stop.lon], { radius: 8, color: "#ea580c", fillOpacity: 0.9 })
+          .addTo(map)
+          .bindPopup(
+            `<b>Stop ${i + 1}: ${esc(stop.name)}</b><br>${esc(stop.address)}, ${esc(stop.city)}, ${esc(stop.state)}<br>` +
+            `Mile ${stop.mile_marker} · $${Number(stop.price_per_gallon).toFixed(3)}/gal<br>${stop.gallons} gal = $${Number(stop.cost).toFixed(2)}`
+          );
+      });
+    }
   </script>
 </body>
 </html>

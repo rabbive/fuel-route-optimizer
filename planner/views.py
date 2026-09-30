@@ -4,13 +4,15 @@ from urllib.parse import urlencode
 
 from django import forms
 from django.core.cache import cache
+from django.db.models import Case, Value, When
+from django.db.models.functions import Length
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
 from .corridor import resample_route, stations_near_route
-from .geocode import CityNotFound, find_city
+from .geocode import CityNotFound, city_key, find_city
 from .models import City
 from .optimizer import UnreachableError, plan_fuel_stops
 from .routing import NoRouteError, RoutingError, get_route
@@ -42,6 +44,36 @@ class RouteForm(forms.Form):
         return parse_city_state(self.cleaned_data["finish"])
 
 
+def home(request):
+    """Open the city form on an empty US map."""
+    return render(request, "planner/map.html", {"trip": None})
+
+
+@csrf_exempt
+def cities(request):
+    """Suggest up to ten cities from the local city table."""
+    if request.method != "GET":
+        response = error_response(405, "Only GET is supported.")
+        response["Allow"] = "GET"
+        return response
+    name, _, state = request.GET.get("q", "").partition(",")
+    prefix = city_key(name)
+    if len(prefix) < 2:
+        return JsonResponse({"cities": []})
+    matches = City.objects.filter(key__startswith=prefix, state__istartswith=state.strip()).order_by(
+        Case(When(key=prefix, then=Value(0)), default=Value(1)), Length("key"), "name", "state",
+    )[:10]
+    return JsonResponse({"cities": [f"{city.name}, {city.state}" for city in matches]})
+
+
+class ApiError(Exception):
+    """A trip error with the HTTP status used by JSON and map pages."""
+
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+
+
 # CSRF is unnecessary here because this view only accepts GET and never changes state.
 @csrf_exempt
 def route(request):
@@ -50,15 +82,36 @@ def route(request):
         response = error_response(405, "Only GET is supported.")
         response["Allow"] = "GET"
         return response
-    form = RouteForm(request.GET)
+    trip, error, status = None, None, 200
+    try:
+        trip = requested_trip(request.GET)
+    except ApiError as exc:
+        error, status = str(exc), exc.status
+
+    if trip is not None:
+        trip["map_url"] = request.build_absolute_uri(
+            reverse("route") + "?" + urlencode({"start": trip["start"]["query"], "finish": trip["finish"]["query"], "format": "map"})
+        )
+    if request.GET.get("format") == "map":
+        return render(request, "planner/map.html", {
+            "trip": trip, "error": error,
+            "start": trip["start"]["query"] if trip else request.GET.get("start", ""),
+            "finish": trip["finish"]["query"] if trip else request.GET.get("finish", ""),
+        }, status=status)
+    return error_response(status, error) if error is not None else JsonResponse(trip)
+
+
+def requested_trip(params) -> dict:
+    """Validate cities and return a cached or newly planned trip."""
+    form = RouteForm(params)
     if not form.is_valid():
         field, errors = next(iter(form.errors.items()))
-        return error_response(400, f"{field}: {errors[0]}")
+        raise ApiError(400, f"{field}: {errors[0]}")
     start, finish = form.cleaned_data["start"], form.cleaned_data["finish"]
     try:
         start_city, finish_city = find_city(*start), find_city(*finish)
     except CityNotFound as exc:
-        return error_response(404, str(exc))
+        raise ApiError(404, str(exc)) from exc
 
     # City aliases share coordinates, so they share one cache entry.
     cache_key = f"trip:{start_city.lat},{start_city.lon}:{finish_city.lat},{finish_city.lon}"
@@ -70,17 +123,12 @@ def route(request):
         try:
             trip = plan_trip(start_city, finish_city)
         except (NoRouteError, UnreachableError) as exc:
-            return error_response(422, str(exc))
+            raise ApiError(422, str(exc)) from exc
         except RoutingError as exc:
-            return error_response(502, str(exc))
+            raise ApiError(502, str(exc)) from exc
         cache.set(cache_key, trip, CACHE_SECONDS)
 
-    trip["map_url"] = request.build_absolute_uri(
-        reverse("route") + "?" + urlencode({"start": trip["start"]["query"], "finish": trip["finish"]["query"], "format": "map"})
-    )
-    if request.GET.get("format") == "map":
-        return render(request, "planner/map.html", {"trip": trip})
-    return JsonResponse(trip)
+    return trip
 
 
 def plan_trip(start_city: City, finish_city: City) -> dict:

@@ -128,9 +128,129 @@ class RouteViewTests(TestCase):
         self.assertContains(response, "strict-origin-when-cross-origin")
         self.assertContains(response, "getSize().x")
 
+    def test_home_page_shows_empty_form(self, get_route):
+        """Open an empty map and city form without calling routing."""
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response["Content-Type"])
+        for text in ('id="route-form"', 'name="start"', 'name="finish"', 'city-options'):
+            self.assertContains(response, text)
+        self.assertContains(response, 'id="trip-data" type="application/json">null</script>')
+        self.assertContains(response, 'value=""', count=2)
+        get_route.assert_not_called()
+
+    def test_map_page_prefills_form(self, get_route):
+        """Keep the selected trip cities in the form."""
+        response = self.get(format="map")
+
+        self.assertContains(response, 'value="Chicago, IL"')
+        self.assertContains(response, 'value="Dallas, TX"')
+
     def test_post_is_405_json(self, get_route):
         """Reject POST with JSON even when CSRF checks are enabled."""
         response = Client(enforce_csrf_checks=True).post(URL)
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(response["Allow"], "GET")
+        self.assertEqual(response.json(), {"error": "Only GET is supported."})
+        get_route.assert_not_called()
+
+    def test_map_unknown_city_renders_page_with_error(self, get_route):
+        """Show an unknown city error and keep both typed cities."""
+        response = self.get(start="Atlantis, IL", format="map")
+
+        self.assertIn("text/html", response["Content-Type"])
+        for text in ("City not found", 'value="Atlantis, IL"', 'value="Dallas, TX"'):
+            self.assertContains(response, text, status_code=404)
+        get_route.assert_not_called()
+
+    def test_map_bad_input_renders_page_with_error(self, get_route):
+        """Explain the city format on the map page."""
+        response = self.client.get(URL, {"start": "Chicago", "format": "map"})
+
+        self.assertIn("text/html", response["Content-Type"])
+        self.assertContains(response, "City, ST", status_code=400)
+        self.assertContains(response, 'value="Chicago"', status_code=400)
+        get_route.assert_not_called()
+
+    def test_map_routing_failure_renders_page_with_error(self, get_route):
+        """Keep the form visible when the routing service fails."""
+        get_route.side_effect = RoutingError("Could not reach the routing service.")
+        response = self.get(format="map")
+
+        self.assertIn("text/html", response["Content-Type"])
+        self.assertContains(response, "Could not reach the routing service.", status_code=502)
+        self.assertContains(response, 'value="Chicago, IL"', status_code=502)
+
+    def test_map_error_escapes_user_text(self, get_route):
+        """Escape markup in both the error message and retained input."""
+        response = self.get(start='<b>x</b>, IL', format="map")
+
+        self.assertIn("text/html", response["Content-Type"])
+        self.assertNotContains(response, "<b>x</b>", status_code=404)
+        self.assertContains(response, 'value="&lt;b&gt;x&lt;/b&gt;, IL"', status_code=404)
+        get_route.assert_not_called()
+
+    def test_map_unreachable_trip_renders_page_with_error(self, get_route):
+        """Show both missing roads and missing fuel stations on the page."""
+        get_route.side_effect = NoRouteError("No driving route found: island")
+        response = self.get(format="map")
+        self.assertContains(response, "No driving route found", status_code=422)
+        self.assertIn("text/html", response["Content-Type"])
+
+        get_route.side_effect = None
+        FuelStation.objects.all().delete()
+        response = self.get(format="map")
+        self.assertContains(response, "No fuel station", status_code=422)
+        self.assertIn("text/html", response["Content-Type"])
+
+    def test_map_post_stays_405_json(self, get_route):
+        """Map format never changes the response to a non-GET request."""
+        response = Client(enforce_csrf_checks=True).post(URL + "?format=map")
+
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(response["Allow"], "GET")
+        self.assertEqual(response.json(), {"error": "Only GET is supported."})
+        get_route.assert_not_called()
+
+    def test_city_suggestions(self, get_route):
+        """Suggest local cities by name, length, and optional state prefix."""
+        City.objects.create(name="Chico", key="chico", state="CA", lat=0, lon=0)
+        City.objects.create(name="Chicagoland", key="chicagoland", state="IL", lat=0, lon=0)
+
+        response = self.client.get("/api/cities/", {"q": "chi"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"cities": ["Chico, CA", "Chicago, IL", "Chicagoland, IL"]})
+        self.assertEqual(
+            self.client.get("/api/cities/", {"q": "chicago, i"}).json(),
+            {"cities": ["Chicago, IL", "Chicagoland, IL"]},
+        )
+        for q in ("c", "", " . c "):
+            self.assertEqual(self.client.get("/api/cities/", {"q": q}).json(), {"cities": []})
+        get_route.assert_not_called()
+
+    def test_city_suggestions_normalization_order_and_limit(self, get_route):
+        """Normalize city names, rank exact matches first, and stop at ten."""
+        City.objects.create(name="New York", key="newyork", state="NY", lat=0, lon=0)
+        response = self.client.get("/api/cities/", {"q": "new yo, n"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {"cities": ["New York, NY"]},
+        )
+        City.objects.create(name="Chi", key="chi", state="IL", lat=0, lon=0)
+        for i in range(12):
+            City.objects.create(name=f"Chi{i:02}", key=f"chi{i:02}", state="IL", lat=0, lon=0)
+        self.assertEqual(
+            self.client.get("/api/cities/", {"q": "CHI, I"}).json(),
+            {"cities": ["Chi, IL"] + [f"Chi{i:02}, IL" for i in range(9)]},
+        )
+        get_route.assert_not_called()
+
+    def test_city_suggestions_post_is_405_json(self, get_route):
+        """Only GET can request city suggestions."""
+        response = Client(enforce_csrf_checks=True).post("/api/cities/?q=chi")
+
         self.assertEqual(response.status_code, 405)
         self.assertEqual(response["Allow"], "GET")
         self.assertEqual(response.json(), {"error": "Only GET is supported."})
