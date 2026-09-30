@@ -1,3 +1,4 @@
+"""Check route resampling and finding stations near a route."""
 import math
 
 from django.test import SimpleTestCase, TestCase

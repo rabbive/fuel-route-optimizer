@@ -5,8 +5,8 @@ from django.db import models
 class City(models.Model):
     """A US place from the Census list, used to turn city names into coordinates."""
 
-    name = models.CharField(max_length=200)
-    key = models.CharField(max_length=200)
+    name = models.CharField(max_length=200)  # display name, e.g. "Chicago"
+    key = models.CharField(max_length=200)  # normalized lookup name from geocode.city_key(), e.g. "saintlouis"
     state = models.CharField(max_length=2)
     lat = models.FloatField()
     lon = models.FloatField()
@@ -29,7 +29,7 @@ class FuelStation(models.Model):
     address = models.CharField(max_length=300)
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=2)
-    price = models.FloatField()
+    price = models.FloatField()  # dollars per gallon
     lat = models.FloatField()
     lon = models.FloatField()
 

@@ -8,6 +8,8 @@ A Django API that plans a road trip between two US cities. It returns the route 
 
 ## Setup
 
+Requires Python 3.12 or newer (Django 6.1).
+
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env               # then paste your free ORS key into .env
@@ -66,6 +68,8 @@ Import `postman_collection.json` into Postman to try it.
   - 95% of US station rows match a city.
   - Canadian stations and unmatched ones are skipped.
   - Duplicate station IDs keep the cheapest price.
+- Stops have no cost of their own, so the cheapest plan sometimes buys a few gallons to reach a slightly cheaper station nearby. A per-stop cost would merge those stops.
+- When a city name repeats within a state, incorporated places win over CDPs.
 - The detour from the route to a station isn't counted in distance or cost.
 
 ## Speed (measured on a laptop)
