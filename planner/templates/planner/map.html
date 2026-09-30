@@ -19,7 +19,7 @@
   <div id="summary">
     <strong>{{ trip.start.query }} → {{ trip.finish.query }}</strong><br>
     {{ trip.total_distance_miles }} miles · {{ trip.fuel_stops|length }} fuel stops<br>
-    {{ trip.total_gallons }} gallons · <strong>${{ trip.total_fuel_cost }}</strong>
+    {{ trip.total_gallons }} gallons · <strong>${{ trip.total_fuel_cost|floatformat:2 }}</strong>
   </div>
 
   {{ trip|json_script:"trip-data" }}
@@ -42,7 +42,8 @@
 
     // Draw the route and zoom the map to fit it.
     const route = L.geoJSON(trip.route, { style: { color: "#2563eb", weight: 5 } }).addTo(map);
-    map.fitBounds(route.getBounds(), { padding: [30, 30] });
+    // Leave room on the right so the totals box does not cover the route pins.
+    map.fitBounds(route.getBounds(), { paddingTopLeft: [30, 30], paddingBottomRight: [300, 30] });
 
     // Start and finish pins.
     L.marker([trip.start.lat, trip.start.lon]).addTo(map).bindPopup("Start: " + esc(trip.start.query));
@@ -54,7 +55,7 @@
         .addTo(map)
         .bindPopup(
           `<b>Stop ${i + 1}: ${esc(stop.name)}</b><br>${esc(stop.address)}, ${esc(stop.city)}, ${esc(stop.state)}<br>` +
-          `Mile ${stop.mile_marker} · $${stop.price_per_gallon}/gal<br>${stop.gallons} gal = $${stop.cost}`
+          `Mile ${stop.mile_marker} · $${Number(stop.price_per_gallon).toFixed(3)}/gal<br>${stop.gallons} gal = $${Number(stop.cost).toFixed(2)}`
         );
     });
   </script>

@@ -14,7 +14,7 @@ Requires Python 3.12 or newer (Django 6.1).
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env               # then paste your free ORS key into .env
 .venv/bin/python manage.py migrate
-.venv/bin/python manage.py load_data    # one time: loads ~32k US cities and ~6.3k fuel stations
+.venv/bin/python manage.py load_data    # one time: loads ~33k US cities and ~6.3k fuel stations
 .venv/bin/python manage.py runserver
 ```
 
@@ -30,6 +30,8 @@ Run the tests: `.venv/bin/python manage.py test planner`
 | `format=map` | optional: return an HTML map instead of JSON |
 
 The response contains:
+
+- `start` and `finish`: name in `query`, `lat`, and `lon`
 - `total_distance_miles`, `total_gallons`, `total_fuel_cost`
 - `fuel_stops`: for each stop, the name, address, city/state, lat/lon, `mile_marker`, `price_per_gallon`, `gallons` and `cost`
 - `route`: a GeoJSON LineString
@@ -42,7 +44,7 @@ Errors are `{"error": "..."}`:
 |---|---|
 | 400 | Bad input |
 | 404 | City not found |
-| 422 | No route, or stations more than 500 miles apart |
+| 422 | No route, or stations more than 500 miles apart (also ORS request limits, e.g. routes over 6,000 km) |
 | 502 | Routing service down |
 
 Import `postman_collection.json` into Postman to try it.
@@ -53,7 +55,7 @@ Import `postman_collection.json` into Postman to try it.
 2. **One routing call.** `planner/routing.py` asks OpenRouteService for the driving route line.
 3. **Stations on the route.** `planner/corridor.py`:
    - resamples the line to one point per mile;
-   - finds each station's closest route point with one numpy matrix multiply;
+   - finds each station's closest route point with numpy matrix multiplies (in chunks);
    - keeps stations within 10 miles of the route.
 4. **Cheapest fuel plan.** `planner/optimizer.py` runs the classic greedy method. At each station:
    - if a cheaper station is within 500 miles, buy just enough to reach it;
@@ -71,6 +73,7 @@ Import `postman_collection.json` into Postman to try it.
 - Stops have no cost of their own, so the cheapest plan sometimes buys a few gallons to reach a slightly cheaper station nearby. A per-stop cost would merge those stops.
 - When a city name repeats within a state, incorporated places win over CDPs.
 - The detour from the route to a station isn't counted in distance or cost.
+- `total_fuel_cost` is rounded from the exact total, so it can differ from the sum of the rounded stop costs by a cent or two.
 
 ## Speed (measured on a laptop)
 
