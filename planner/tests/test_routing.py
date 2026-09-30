@@ -31,9 +31,12 @@ class GetRouteTests(SimpleTestCase):
         self.assertEqual(coords, [[-87.6, 41.9], [-96.8, 32.8]])
         url = post.call_args.args[0]
         self.assertEqual(url, "https://ors.example/v2/directions/driving-car/geojson")
-        self.assertEqual(post.call_args.kwargs["json"], {"coordinates": [[-87.6, 41.9], [-96.8, 32.8]]})
+        self.assertEqual(
+            post.call_args.kwargs["json"],
+            {"coordinates": [[-87.6, 41.9], [-96.8, 32.8]], "instructions": False},
+        )
         self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "test-key")
-        self.assertEqual(post.call_args.kwargs["timeout"], 10)
+        self.assertEqual(post.call_args.kwargs["timeout"], 30)
 
     @patch(
         "planner.routing.requests.post",

@@ -4,7 +4,7 @@ import math
 import requests
 from django.conf import settings
 
-TIMEOUT_SECONDS = 10
+TIMEOUT_SECONDS = 30  # the free ORS server can take 10–20 s for coast-to-coast routes
 
 
 class RoutingError(Exception):
@@ -21,7 +21,10 @@ def get_route(start: tuple[float, float], finish: tuple[float, float]) -> list[l
     Returns the route line as a list of [lon, lat] points (the GeoJSON order).
     """
     url = f"{settings.ORS_BASE_URL}/v2/directions/driving-car/geojson"
-    body = {"coordinates": [[start[1], start[0]], [finish[1], finish[0]]]}  # ORS wants [lon, lat]
+    body = {
+        "coordinates": [[start[1], start[0]], [finish[1], finish[0]]],  # ORS wants [lon, lat]
+        "instructions": False,  # we only need the route line, not turn-by-turn directions
+    }
     try:
         response = requests.post(
             url, json=body, headers={"Authorization": settings.ORS_API_KEY}, timeout=TIMEOUT_SECONDS

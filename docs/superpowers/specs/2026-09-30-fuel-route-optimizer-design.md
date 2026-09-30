@@ -87,7 +87,7 @@ The command is idempotent: it clears and reloads both tables.
 1. **Validate.** A Django Form checks that both fields exist and match `City, ST` (a two-letter state). Failure → 400.
 2. **Cache.** The key is the normalized `(start, finish)`, held in Django's LocMem cache for 1 hour. On a hit, return the stored result with `cached: true` and `routing_api_calls: 0`.
 3. **Geocode.** `geocode.py` looks up both cities in `City`. Not found → 404.
-4. **Route.** `routing.py` sends a POST to `{ORS_BASE_URL}/v2/directions/driving-car/geojson`, where `ORS_BASE_URL` defaults to `https://api.heigit.org/openrouteservice` (ORS is deprecating `api.openrouteservice.org` in favour of `api.heigit.org`), with the two coordinates and a 10-second timeout. It returns the list of `[lon, lat]` points. The trip distance is measured from this line (step 5), so the mile markers and the total always agree. ORS error → 422 if no route exists, 502 for other failures or a timeout.
+4. **Route.** `routing.py` sends a POST to `{ORS_BASE_URL}/v2/directions/driving-car/geojson`, where `ORS_BASE_URL` defaults to `https://api.heigit.org/openrouteservice` (ORS is deprecating `api.openrouteservice.org` in favour of `api.heigit.org`), with the two coordinates, `"instructions": false` (we never use turn-by-turn text), and a 30-second timeout. Measured live on 2026-09-30, the free ORS server took 3–21 s for coast-to-coast routes, so 10 s would have turned slow-but-valid routes into 502s. It returns the list of `[lon, lat]` points. The trip distance is measured from this line (step 5), so the mile markers and the total always agree. ORS error → 422 if no route exists, 502 for other failures or a timeout.
 5. **Corridor** (`corridor.py`):
    - Resample the route to one point per mile along its length, so a point's index is its mile marker.
    - Query stations inside the route's bounding box, widened by the corridor width.
@@ -143,7 +143,7 @@ A single Leaflet page with OpenStreetMap tiles. It shows the route as a polyline
 | 400 | Missing or badly formatted `start`/`finish` |
 | 404 | City not found in the US city list |
 | 422 | ORS finds no route, or the trip is impossible with a 500-mile range |
-| 502 | ORS failure or a 10-second timeout |
+| 502 | ORS failure or a 30-second timeout |
 
 ## Configuration
 

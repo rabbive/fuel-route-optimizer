@@ -80,6 +80,7 @@ Import `postman_collection.json` into Postman to try it.
 | New York → Los Angeles | 6.885 s | 3.285 ms | 39 ms |
 
 These numbers were measured on a MacBook Pro against the live ORS API on 2026-09-30.
+First-request time is dominated by the free ORS server (39 ms is our own compute), which varied from 3 to 21 s during testing.
 
 ## Limits / next steps
 
