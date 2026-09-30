@@ -58,8 +58,8 @@ def route(request):
     except CityNotFound as exc:
         return error_response(404, str(exc))
 
-    # Spellings that resolve to the same cities in the same order share one cache entry.
-    cache_key = f"trip:{start_city.pk}:{finish_city.pk}"
+    # City aliases share coordinates, so they share one cache entry.
+    cache_key = f"trip:{start_city.lat},{start_city.lon}:{finish_city.lat},{finish_city.lon}"
     trip = cache.get(cache_key)
     if trip is not None:
         trip = {**trip, "cached": True, "routing_api_calls": 0}
@@ -82,7 +82,7 @@ def route(request):
 
 def plan_trip(start_city: City, finish_city: City) -> dict:
     """Make at most one routing call, match stations, and pick fuel stops."""
-    if start_city.pk == finish_city.pk:
+    if (start_city.lat, start_city.lon) == (finish_city.lat, finish_city.lon):
         # Same city: a zero-length route, so no routing call is needed.
         coordinates, routing_api_calls = [[start_city.lon, start_city.lat]] * 2, 0
     else:

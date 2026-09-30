@@ -26,7 +26,7 @@ def get_route(start: tuple[float, float], finish: tuple[float, float]) -> list[l
     body = {
         "coordinates": [[start[1], start[0]], [finish[1], finish[0]]],  # ORS wants [lon, lat]
         "instructions": False,  # we only need the route line, not turn-by-turn directions
-        "radiuses": [-1, -1],  # city centers can be far from a road; -1 lets ORS snap to the nearest road at any distance
+        "radiuses": [-1, -1],  # -1 removes ORS's 350 m snap limit, so city centers far from a road still snap to it (a few places, like Anchorage's Census center, still can't be matched).
     }
     try:
         response = requests.post(

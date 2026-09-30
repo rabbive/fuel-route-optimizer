@@ -5,7 +5,6 @@ from unittest.mock import patch
 from django.core.cache import cache
 from django.test import Client, TestCase
 
-from planner.geocode import find_city
 from planner.models import City, FuelStation
 from planner.routing import NoRouteError, RoutingError
 
@@ -71,12 +70,11 @@ class RouteViewTests(TestCase):
         self.assertTrue(response.json()["cached"])
         self.assertEqual(get_route.call_count, 1)
 
-    def test_alias_spelling_shares_cache(self, get_route):
-        """Reuse the trip when another spelling resolves to the same city."""
-        with patch("planner.views.find_city", wraps=find_city) as lookup:
-            lookup.side_effect = lambda name, state: find_city("Chicago" if name == "Chi Town" else name, state)
-            self.get()
-            second = self.get(start="Chi Town, IL")
+    def test_alias_coordinates_share_cache(self, get_route):
+        """Different city rows at the same coordinates share a trip cache entry."""
+        City.objects.create(name="Chi Town", key="chitown", state="IL", lat=CHICAGO[0], lon=CHICAGO[1])
+        self.get()
+        second = self.client.get(URL, {"start": "Chi Town, IL", "finish": "Dallas, TX"})
 
         self.assertEqual(second.status_code, 200)
         self.assertTrue(second.json()["cached"])
@@ -106,6 +104,15 @@ class RouteViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual((data["total_fuel_cost"], data["fuel_stops"], data["routing_api_calls"]), (0, [], 0))
+        get_route.assert_not_called()
+
+    def test_alias_coordinates_count_as_same_city(self, get_route):
+        """Different city rows at the same coordinates need no routing call."""
+        City.objects.create(name="Chi Town", key="chitown", state="IL", lat=CHICAGO[0], lon=CHICAGO[1])
+        response = self.client.get(URL, {"start": "Chicago, IL", "finish": "Chi Town, IL"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["routing_api_calls"], 0)
         get_route.assert_not_called()
 
     def test_map_format_returns_html(self, get_route):

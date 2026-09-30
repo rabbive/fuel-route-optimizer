@@ -87,6 +87,7 @@ First-request time is dominated by the free ORS server (39 ms is our own compute
 
 ## Limits / next steps
 
+- A few Census city centers can't be matched to any road by ORS (e.g. Anchorage, AK), and those trips return 422.
 - The cache lives in memory in one process. Use Redis if the app runs on several servers.
 - Input is limited to "City, ST". Supporting street addresses would need a geocoding API (more calls).
 - Fuel prices are a static snapshot.
