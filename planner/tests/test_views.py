@@ -214,19 +214,28 @@ class RouteViewTests(TestCase):
         get_route.assert_not_called()
 
     def test_city_suggestions(self, get_route):
-        """Suggest local cities by name, length, and optional state prefix."""
+        """Rank exact names first, then stations, key length, and name."""
         City.objects.create(name="Chico", key="chico", state="CA", lat=0, lon=0)
         City.objects.create(name="Chicagoland", key="chicagoland", state="IL", lat=0, lon=0)
 
         response = self.client.get("/api/cities/", {"q": "chi"})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"cities": ["Chico, CA", "Chicago, IL", "Chicagoland, IL"]})
+        self.assertEqual(response.json(), {"cities": ["Chicago, IL", "Chico, CA", "Chicagoland, IL"]})
         self.assertEqual(
             self.client.get("/api/cities/", {"q": "chicago, i"}).json(),
             {"cities": ["Chicago, IL", "Chicagoland, IL"]},
         )
         for q in ("c", "", " . c "):
             self.assertEqual(self.client.get("/api/cities/", {"q": q}).json(), {"cities": []})
+        get_route.assert_not_called()
+
+    def test_suggestions_rank_cities_with_fuel_stations_first(self, get_route):
+        for letter in "abcdefghijkl":
+            City.objects.create(name=f"Chi{letter}", key=f"chi{letter}", state="IL", lat=0, lon=0)
+
+        cities = self.client.get("/api/cities/", {"q": "chi"}).json()["cities"]
+        self.assertEqual(cities[0], "Chicago, IL")
+        self.assertLessEqual(len(cities), 10)
         get_route.assert_not_called()
 
     def test_city_suggestions_normalization_order_and_limit(self, get_route):
@@ -243,7 +252,7 @@ class RouteViewTests(TestCase):
             City.objects.create(name=f"Chi{i:02}", key=f"chi{i:02}", state="IL", lat=0, lon=0)
         self.assertEqual(
             self.client.get("/api/cities/", {"q": "CHI, I"}).json(),
-            {"cities": ["Chi, IL"] + [f"Chi{i:02}, IL" for i in range(9)]},
+            {"cities": ["Chi, IL", "Chicago, IL"] + [f"Chi{i:02}, IL" for i in range(8)]},
         )
         get_route.assert_not_called()
 

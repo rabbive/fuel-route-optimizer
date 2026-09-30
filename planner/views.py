@@ -4,8 +4,8 @@ from urllib.parse import urlencode
 
 from django import forms
 from django.core.cache import cache
-from django.db.models import Case, Value, When
-from django.db.models.functions import Length
+from django.db.models import Case, Count, OuterRef, Subquery, Value, When
+from django.db.models.functions import Coalesce, Length
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .corridor import resample_route, stations_near_route
 from .geocode import CityNotFound, city_key, find_city
-from .models import City
+from .models import City, FuelStation
 from .optimizer import UnreachableError, plan_fuel_stops
 from .routing import NoRouteError, RoutingError, get_route
 
@@ -60,8 +60,12 @@ def cities(request):
     prefix = city_key(name)
     if len(prefix) < 2:
         return JsonResponse({"cities": []})
-    matches = City.objects.filter(key__startswith=prefix, state__istartswith=state.strip()).order_by(
-        Case(When(key=prefix, then=Value(0)), default=Value(1)), Length("key"), "name", "state",
+    stations = FuelStation.objects.filter(lat=OuterRef("lat"), lon=OuterRef("lon"))
+    # Station count is a useful size proxy for trucking destinations.
+    matches = City.objects.filter(key__startswith=prefix, state__istartswith=state.strip()).annotate(
+        station_count=Coalesce(Subquery(stations.values("lat").annotate(n=Count("pk")).values("n")[:1]), 0),
+    ).order_by(
+        Case(When(key=prefix, then=Value(0)), default=Value(1)), "-station_count", Length("key"), "name", "state",
     )[:10]
     return JsonResponse({"cities": [f"{city.name}, {city.state}" for city in matches]})
 
