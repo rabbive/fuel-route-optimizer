@@ -3,27 +3,210 @@
     "name": "Fuel Route Optimizer",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [{ "key": "base_url", "value": "http://127.0.0.1:8000" }],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    }
+  ],
   "item": [
     {
       "name": "Chicago, IL -> Dallas, TX",
-      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=Chicago, IL&finish=Dallas, TX" }
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/route/?start=Chicago, IL&finish=Dallas, TX"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const trip = pm.response.json();",
+              "pm.test(\"Routing API calls is 1 or 0\", function () {",
+              "  pm.expect(trip.routing_api_calls).to.be.oneOf([1, 0]);",
+              "});",
+              "pm.test(\"Fuel stops is an array\", function () {",
+              "  pm.expect(trip.fuel_stops).to.be.an(\"array\");",
+              "});",
+              "pm.test(\"Gallons match distance at 10 MPG\", function () {",
+              "  pm.expect(trip.total_gallons).to.be.closeTo(trip.total_distance_miles / 10, 0.05);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chicago, IL -> Dallas, TX (repeat → cached)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/route/?start=Chicago, IL&finish=Dallas, TX"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const trip = pm.response.json();",
+              "pm.test(\"Routing API calls is 1 or 0\", function () {",
+              "  pm.expect(trip.routing_api_calls).to.be.oneOf([1, 0]);",
+              "});",
+              "pm.test(\"Fuel stops is an array\", function () {",
+              "  pm.expect(trip.fuel_stops).to.be.an(\"array\");",
+              "});",
+              "pm.test(\"Gallons match distance at 10 MPG\", function () {",
+              "  pm.expect(trip.total_gallons).to.be.closeTo(trip.total_distance_miles / 10, 0.05);",
+              "});",
+              "pm.test(\"Repeat trip is cached\", function () {",
+              "  pm.expect(trip.cached).to.equal(true);",
+              "});",
+              "pm.test(\"Repeat trip makes no routing calls\", function () {",
+              "  pm.expect(trip.routing_api_calls).to.equal(0);",
+              "});"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "New York, NY -> Los Angeles, CA (coast to coast)",
-      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=New York, NY&finish=Los Angeles, CA" }
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/route/?start=New York, NY&finish=Los Angeles, CA"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const trip = pm.response.json();",
+              "pm.test(\"Routing API calls is 1 or 0\", function () {",
+              "  pm.expect(trip.routing_api_calls).to.be.oneOf([1, 0]);",
+              "});",
+              "pm.test(\"Fuel stops is an array\", function () {",
+              "  pm.expect(trip.fuel_stops).to.be.an(\"array\");",
+              "});",
+              "pm.test(\"Gallons match distance at 10 MPG\", function () {",
+              "  pm.expect(trip.total_gallons).to.be.closeTo(trip.total_distance_miles / 10, 0.05);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Same city (Chicago → Chicago, 0 miles)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/route/?start=Chicago, IL&finish=Chicago, IL"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const trip = pm.response.json();",
+              "pm.test(\"Routing API calls is 1 or 0\", function () {",
+              "  pm.expect(trip.routing_api_calls).to.be.oneOf([1, 0]);",
+              "});",
+              "pm.test(\"Fuel stops is an array\", function () {",
+              "  pm.expect(trip.fuel_stops).to.be.an(\"array\");",
+              "});",
+              "pm.test(\"Gallons match distance at 10 MPG\", function () {",
+              "  pm.expect(trip.total_gallons).to.be.closeTo(trip.total_distance_miles / 10, 0.05);",
+              "});",
+              "pm.test(\"Same city has zero fuel cost\", function () {",
+              "  pm.expect(trip.total_fuel_cost).to.equal(0);",
+              "});"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "Map view (HTML) - Chicago -> Dallas",
-      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=Chicago, IL&finish=Dallas, TX&format=map" }
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/route/?start=Chicago, IL&finish=Dallas, TX&format=map"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Map includes Leaflet\", function () {",
+              "  pm.expect(pm.response.text()).to.include(\"leaflet\");",
+              "});"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "Error 400 - bad format",
-      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=Chicago&finish=Dallas, TX" }
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/route/?start=Chicago&finish=Dallas, TX"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 400\", function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "pm.test(\"Response has an error\", function () {",
+              "  pm.expect(pm.response.json()).to.have.property(\"error\");",
+              "});"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "Error 404 - unknown city",
-      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=Atlantis, IL&finish=Dallas, TX" }
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/route/?start=Atlantis, IL&finish=Dallas, TX"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 404\", function () {",
+              "  pm.response.to.have.status(404);",
+              "});",
+              "pm.test(\"Response has an error\", function () {",
+              "  pm.expect(pm.response.json()).to.have.property(\"error\");",
+              "});"
+            ]
+          }
+        }
+      ]
     }
   ]
 }
