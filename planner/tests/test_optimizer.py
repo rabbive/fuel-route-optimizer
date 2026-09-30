@@ -82,3 +82,10 @@ class PlanFuelStopsTests(SimpleTestCase):
         """Check that each stop retains its station object."""
         plan = plan_fuel_stops([Candidate(0, 3.0, station="PILOT #1")], total_miles=50)
         self.assertEqual(plan.stops[0].candidate.station, "PILOT #1")
+
+    def test_tied_first_stations_use_the_cheaper_one(self):
+        """Check that stations at the same mile are charged at the cheaper price."""
+        for candidates in ([Candidate(40, 4.0), Candidate(40, 3.0)], [Candidate(40, 3.0), Candidate(40, 4.0)]):
+            plan = plan_fuel_stops(candidates, total_miles=240)
+            self.assertAlmostEqual(plan.total_cost, 72.0)
+            self.assertEqual(len(plan.stops), 1)

@@ -64,3 +64,13 @@ class GetRouteTests(SimpleTestCase):
         """Report an unexpected successful response as a routing error."""
         with self.assertRaisesRegex(RoutingError, "Unexpected response from the routing service"):
             get_route((41.9, -87.6), (32.8, -96.8))
+
+    def test_bad_geometry_is_routing_error(self):
+        """Report missing, short, or non-numeric route coordinates as a routing error."""
+        for coords in ([], None, [[1]], [["a", "b"], [1, 2]]):
+            body = {"features": [{"geometry": {"coordinates": coords}}]}
+            with self.subTest(coords=coords), patch(
+                "planner.routing.requests.post", return_value=fake_response(200, body)
+            ):
+                with self.assertRaises(RoutingError):
+                    get_route((41.9, -87.6), (32.8, -96.8))

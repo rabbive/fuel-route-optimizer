@@ -1,4 +1,6 @@
 """Get a driving route from OpenRouteService (ORS). This is the only external API we call."""
+import math
+
 import requests
 from django.conf import settings
 
@@ -33,10 +35,27 @@ def get_route(start: tuple[float, float], finish: tuple[float, float]) -> list[l
     if not response.ok:
         raise RoutingError(f"Routing service error ({response.status_code}): {error_message(response)}")
     try:
-        return response.json()["features"][0]["geometry"]["coordinates"]
+        coordinates = response.json()["features"][0]["geometry"]["coordinates"]
     except (ValueError, KeyError, IndexError, TypeError) as exc:
         # A successful response must contain route coordinates.
         raise RoutingError("Unexpected response from the routing service.") from exc
+    if not _valid_coordinates(coordinates):
+        raise RoutingError("Unexpected response from the routing service.")
+    return coordinates
+
+
+def _valid_coordinates(coords) -> bool:
+    """True if coords is a list of at least 2 points, each with 2+ real numbers."""
+    return (
+        isinstance(coords, list)
+        and len(coords) >= 2
+        and all(
+            isinstance(p, (list, tuple))
+            and len(p) >= 2
+            and all(isinstance(n, (int, float)) and not isinstance(n, bool) and math.isfinite(n) for n in p)
+            for p in coords
+        )
+    )
 
 
 def error_message(response) -> str:

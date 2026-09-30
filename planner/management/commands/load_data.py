@@ -1,5 +1,6 @@
 """Load the local US city list and fuel price CSV into the database."""
 import csv
+import re
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
@@ -36,12 +37,20 @@ class Command(BaseCommand):
             rows = list(csv.DictReader(f, delimiter="|"))
 
         cities = {}
-        for row in rows:
+        # First pass: every place under its own full name (incorporated places before CDPs).
+        # When two places share a name and state, the first one added wins, so real cities beat CDPs.
+        for row in sorted(rows, key=lambda r: r["NAME"].endswith(" CDP")):
             self.add_city(cities, clean_census_name(row["NAME"]), row)
+        # Second pass: extra short names (e.g. "Nashville-Davidson" -> "Nashville"), only if no real place already uses that name.
         for row in rows:
             name = clean_census_name(row["NAME"])
             if "-" in name:
                 self.add_city(cities, name.split("-")[0], row)
+            inside = re.search(r"\((.*?)\)", row["NAME"])  # "San Buenaventura (Ventura)" -> "Ventura"
+            if inside and inside[1] != "balance":
+                self.add_city(cities, inside[1], row)
+            if name.endswith(" City"):  # "Boise City" -> "Boise"
+                self.add_city(cities, name[: -len(" City")], row)
 
         City.objects.all().delete()
         City.objects.bulk_create(cities.values())
@@ -62,7 +71,7 @@ class Command(BaseCommand):
 
     def load_stations(self, path, cities):
         """Save each station at its city coordinates, keeping only its lowest price."""
-        cheapest = {}
+        cheapest = {}  # station ID -> the CSV row with its lowest price
         with open(path, encoding="utf-8-sig") as f:
             for row in csv.DictReader(f):
                 opis_id = int(row["OPIS Truckstop ID"])

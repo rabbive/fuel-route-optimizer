@@ -1,12 +1,12 @@
 """Turn city and state names into coordinates using the local US city table."""
 import re
+import unicodedata
 
 from .models import City
 
 PLACE_TYPE_SUFFIX = re.compile(
     r"\s+(city and borough|consolidated government|metropolitan government|unified government|"
-    r"urban county|city|town|village|borough|cdp|municipality|plantation)$",
-    re.IGNORECASE,
+    r"urban county|city|town|village|borough|CDP|municipality|plantation)$"
 )
 ABBREVIATIONS = {"st": "saint", "ste": "sainte", "ft": "fort", "mt": "mount"}
 
@@ -17,7 +17,9 @@ class CityNotFound(Exception):
 
 def city_key(name: str) -> str:
     """Normalize punctuation, spacing, and common city name abbreviations."""
-    words = re.sub(r"[^a-z0-9 ]", " ", name.lower()).split()
+    # Fold accents first so "Cañon City" and "Canon City" match.
+    plain = "".join(c for c in unicodedata.normalize("NFKD", name) if not unicodedata.combining(c))
+    words = re.sub(r"[^a-z0-9 ]", " ", plain.lower()).split()
     return "".join(ABBREVIATIONS.get(word, word) for word in words)
 
 

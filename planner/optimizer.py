@@ -58,9 +58,10 @@ def plan_fuel_stops(
     if total_miles <= 0:
         return FuelPlan(stops=[], total_gallons=0.0, total_cost=0.0)
 
-    stations = sorted((c for c in candidates if c.mile <= total_miles), key=lambda c: c.mile)
+    # Ties on the same mile go to the cheaper station, which matters for the first one.
+    stations = sorted((c for c in candidates if c.mile <= total_miles), key=lambda c: (c.mile, c.price))
     if not stations or stations[0].mile > max_range:
-        raise UnreachableError(f"No fuel station within {max_range} miles of the start.")
+        raise UnreachableError(f"No fuel station along the route within {max_range} miles of the start.")
 
     # How many miles' worth of fuel we buy at each station. The tank starts empty, so the
     # short drive from the start city to the first station is paid at that station's price.

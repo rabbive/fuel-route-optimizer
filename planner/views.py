@@ -73,9 +73,14 @@ def route(request):
 
 
 def plan_trip(start: tuple[str, str], finish: tuple[str, str]) -> dict:
-    """The whole pipeline: find the cities, make ONE routing call, match stations, pick fuel stops."""
+    """The whole pipeline: find the cities, make at most ONE routing call, match stations, pick fuel stops."""
     start_city, finish_city = find_city(*start), find_city(*finish)
-    coordinates = get_route((start_city.lat, start_city.lon), (finish_city.lat, finish_city.lon))
+    if start_city.pk == finish_city.pk:
+        # Same city: a zero-length route, so no routing call is needed.
+        coordinates, routing_api_calls = [[start_city.lon, start_city.lat]] * 2, 0
+    else:
+        coordinates = get_route((start_city.lat, start_city.lon), (finish_city.lat, finish_city.lon))
+        routing_api_calls = 1
     line = resample_route(coordinates)
     plan = plan_fuel_stops(stations_near_route(line), line.total_miles)
     return {
@@ -86,7 +91,7 @@ def plan_trip(start: tuple[str, str], finish: tuple[str, str]) -> dict:
         "total_fuel_cost": round(plan.total_cost, 2),
         "fuel_stops": [stop_json(stop) for stop in plan.stops],
         "route": line.as_geojson(),
-        "routing_api_calls": 1,
+        "routing_api_calls": routing_api_calls,
         "cached": False,
     }
 

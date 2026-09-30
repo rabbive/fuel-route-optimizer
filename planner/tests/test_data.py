@@ -14,6 +14,11 @@ IL|Chicago city|41.837|-87.685
 TN|Nashville-Davidson metropolitan government (balance)|36.17|-86.78
 MO|St. Louis city|38.63|-90.24
 OK|Oklahoma City city|35.47|-97.51
+NV|Carson City|39.15|-119.74
+CA|San Buenaventura (Ventura) city|34.27|-119.25
+ID|Boise City city|43.60|-116.23
+TX|Agua Dulce CDP|31.65|-106.13
+TX|Agua Dulce city|27.78|-97.90
 """
 
 FUEL = """OPIS Truckstop ID,Truckstop Name,Address,City,State,Rack ID,Retail Price
@@ -40,11 +45,18 @@ class CityKeyTests(SimpleTestCase):
         self.assertEqual(city_key("Mc Calla"), city_key("McCalla"))
         self.assertEqual(city_key("  Chicago "), "chicago")
 
+    def test_accents_are_folded(self):
+        """Treat accented letters like their plain versions."""
+        self.assertEqual(city_key("Cañon City"), "canoncity")
+        self.assertEqual(city_key("Canon City"), "canoncity")
+        self.assertEqual(city_key("Española"), "espanola")
+
     def test_clean_census_name_strips_place_type(self):
         """Remove place type suffixes while keeping name words."""
         self.assertEqual(clean_census_name("Chicago city"), "Chicago")
         self.assertEqual(clean_census_name("Abanda CDP"), "Abanda")
         self.assertEqual(clean_census_name("Oklahoma City city"), "Oklahoma City")
+        self.assertEqual(clean_census_name("Carson City"), "Carson City")
         self.assertEqual(
             clean_census_name("Nashville-Davidson metropolitan government (balance)"), "Nashville-Davidson"
         )
@@ -73,6 +85,14 @@ class LoadDataTests(TestCase):
         self.assertEqual(FuelStation.objects.get(opis_id=5).lat, 35.47)
         self.assertFalse(FuelStation.objects.filter(opis_id=4).exists())
         self.assertIn("Skipped (city not found): 1", output)
+
+    def test_aliases_and_collisions(self):
+        """Add short-name aliases, and let a real city beat a CDP with the same name."""
+        self.run_load_data()
+        self.assertEqual(find_city("Carson City", "NV").lat, 39.15)
+        self.assertEqual(find_city("Ventura", "CA").lat, 34.27)
+        self.assertEqual(find_city("Boise", "ID").lat, 43.60)
+        self.assertEqual(find_city("Agua Dulce", "TX").lat, 27.78)
 
     def test_load_data_can_run_twice(self):
         """Allow repeat runs without duplicate cities or stations."""

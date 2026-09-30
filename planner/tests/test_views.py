@@ -86,6 +86,16 @@ class RouteViewTests(TestCase):
 
         self.assertEqual((data["total_distance_miles"], data["total_fuel_cost"], data["fuel_stops"]), (0, 0, []))
 
+    def test_same_city_makes_no_routing_call(self, get_route):
+        """Same city needs no routing call, even if routing is down."""
+        get_route.side_effect = RoutingError("down")
+        response = self.client.get(URL, {"start": "Chicago, IL", "finish": "Chicago, IL"})
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual((data["total_fuel_cost"], data["fuel_stops"], data["routing_api_calls"]), (0, [], 0))
+        get_route.assert_not_called()
+
     def test_map_format_returns_html(self, get_route):
         """Map format returns html."""
         response = self.get(format="map")
