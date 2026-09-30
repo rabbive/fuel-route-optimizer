@@ -94,6 +94,7 @@ class RouteViewTests(TestCase):
         self.assertIn("text/html", response["Content-Type"])
         self.assertContains(response, "leaflet")
         self.assertContains(response, "trip-data")
+        self.assertContains(response, "function esc(")
 
     def test_missing_finish_is_400(self, get_route):
         """Missing finish is 400."""

@@ -26,6 +26,12 @@
   <script>
     // Read the trip JSON that Django put into the page.
     const trip = JSON.parse(document.getElementById("trip-data").textContent);
+    // Escape text before Leaflet inserts it into popup HTML.
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      })[char]);
+    }
     const map = L.map("map");
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
@@ -37,15 +43,15 @@
     map.fitBounds(route.getBounds(), { padding: [30, 30] });
 
     // Start and finish pins.
-    L.marker([trip.start.lat, trip.start.lon]).addTo(map).bindPopup("Start: " + trip.start.query);
-    L.marker([trip.finish.lat, trip.finish.lon]).addTo(map).bindPopup("Finish: " + trip.finish.query);
+    L.marker([trip.start.lat, trip.start.lon]).addTo(map).bindPopup("Start: " + esc(trip.start.query));
+    L.marker([trip.finish.lat, trip.finish.lon]).addTo(map).bindPopup("Finish: " + esc(trip.finish.query));
 
     // One orange dot per fuel stop, with the details in its popup.
     trip.fuel_stops.forEach((stop, i) => {
       L.circleMarker([stop.lat, stop.lon], { radius: 8, color: "#ea580c", fillOpacity: 0.9 })
         .addTo(map)
         .bindPopup(
-          `<b>Stop ${i + 1}: ${stop.name}</b><br>${stop.address}, ${stop.city}, ${stop.state}<br>` +
+          `<b>Stop ${i + 1}: ${esc(stop.name)}</b><br>${esc(stop.address)}, ${esc(stop.city)}, ${esc(stop.state)}<br>` +
           `Mile ${stop.mile_marker} · $${stop.price_per_gallon}/gal<br>${stop.gallons} gal = $${stop.cost}`
         );
     });
