@@ -78,6 +78,7 @@ class RouteViewTests(TestCase):
 
         self.assertEqual(second.status_code, 200)
         self.assertTrue(second.json()["cached"])
+        self.assertEqual(second.json()["start"]["query"], "Chi Town, IL")
         self.assertEqual(get_route.call_count, 1)
 
     def test_reversed_trip_is_not_served_from_cache(self, get_route):
@@ -125,11 +126,13 @@ class RouteViewTests(TestCase):
         self.assertContains(response, "trip-data")
         self.assertContains(response, "function esc(")
         self.assertContains(response, "strict-origin-when-cross-origin")
+        self.assertContains(response, "getSize().x")
 
     def test_post_is_405_json(self, get_route):
         """Reject POST with JSON even when CSRF checks are enabled."""
         response = Client(enforce_csrf_checks=True).post(URL)
         self.assertEqual(response.status_code, 405)
+        self.assertEqual(response["Allow"], "GET")
         self.assertEqual(response.json(), {"error": "Only GET is supported."})
         get_route.assert_not_called()
 

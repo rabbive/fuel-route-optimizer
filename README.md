@@ -44,8 +44,9 @@ Errors are `{"error": "..."}`:
 |---|---|
 | 400 | Bad input |
 | 404 | City not found |
+| 405 | Non-GET request |
 | 422 | No route, or stations more than 500 miles apart (also ORS request limits, e.g. routes over 6,000 km) |
-| 502 | Routing service down |
+| 502 | Routing service down or `ORS_API_KEY` not set |
 
 Import `postman_collection.json` into Postman to try it.
 

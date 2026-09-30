@@ -51,13 +51,13 @@ def get_route(start: tuple[float, float], finish: tuple[float, float]) -> list[l
 
 
 def _valid_coordinates(coords) -> bool:
-    """True if coords is a list of at least 2 points, each with 2+ real numbers."""
+    """True if coords is a list of at least 2 points, each with exactly 2 real numbers."""
     return (
         isinstance(coords, list)
         and len(coords) >= 2
         and all(
             isinstance(p, (list, tuple))
-            and len(p) >= 2
+            and len(p) == 2
             and all(isinstance(n, (int, float)) and not isinstance(n, bool) and math.isfinite(n) for n in p)
             for p in coords
         )

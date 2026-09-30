@@ -17,6 +17,7 @@ Results are cached for an hour. The same URL with `format=map` renders a Leaflet
 **Spec:** `docs/superpowers/specs/2026-09-30-fuel-route-optimizer-design.md`
 
 ## Global Constraints
+> Superseded on 2026-09-30: ORS timeout is 30 s and requests send "instructions": false and "radiuses": [-1, -1] (see spec §Request flow step 4 and the ledger rulings).
 
 - Django **6.1.1**; Python ≥ 3.12 (local is 3.14). Runtime dependencies are only `Django==6.1.1`, `requests==2.34.2` and `numpy==2.5.3`.
 - Plain Django: no DRF, no dotenv library, no scipy.

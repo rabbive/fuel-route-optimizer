@@ -10,6 +10,7 @@
     #summary {
       position: absolute; top: 10px; right: 10px; z-index: 1000;
       background: white; padding: 10px 14px; border-radius: 6px;
+      max-width: calc(100% - 80px);
       font: 14px/1.5 sans-serif; box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
     }
   </style>
@@ -42,8 +43,11 @@
 
     // Draw the route and zoom the map to fit it.
     const route = L.geoJSON(trip.route, { style: { color: "#2563eb", weight: 5 } }).addTo(map);
-    // Leave room on the right so the totals box does not cover the route pins.
-    map.fitBounds(route.getBounds(), { paddingTopLeft: [30, 30], paddingBottomRight: [300, 30] });
+    // Leave room for the totals box only when the map is wide enough.
+    const wide = map.getSize().x > 700;
+    map.fitBounds(route.getBounds(), wide
+      ? { paddingTopLeft: [30, 30], paddingBottomRight: [300, 30] }
+      : { padding: [20, 20] });
 
     // Start and finish pins.
     L.marker([trip.start.lat, trip.start.lon]).addTo(map).bindPopup("Start: " + esc(trip.start.query));

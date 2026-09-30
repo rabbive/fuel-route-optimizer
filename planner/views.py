@@ -47,7 +47,9 @@ class RouteForm(forms.Form):
 def route(request):
     """Return the route, the cheapest fuel stops and the total fuel cost (JSON, or a map page)."""
     if request.method != "GET":
-        return error_response(405, "Only GET is supported.")
+        response = error_response(405, "Only GET is supported.")
+        response["Allow"] = "GET"
+        return response
     form = RouteForm(request.GET)
     if not form.is_valid():
         field, errors = next(iter(form.errors.items()))
@@ -62,7 +64,8 @@ def route(request):
     cache_key = f"trip:{start_city.lat},{start_city.lon}:{finish_city.lat},{finish_city.lon}"
     trip = cache.get(cache_key)
     if trip is not None:
-        trip = {**trip, "cached": True, "routing_api_calls": 0}
+        trip = {**trip, "start": place_json(start_city), "finish": place_json(finish_city),
+                "cached": True, "routing_api_calls": 0}
     else:
         try:
             trip = plan_trip(start_city, finish_city)

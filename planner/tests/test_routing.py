@@ -80,7 +80,7 @@ class GetRouteTests(SimpleTestCase):
 
     def test_bad_geometry_is_routing_error(self):
         """Report missing, short, or non-numeric route coordinates as a routing error."""
-        for coords in ([], None, [[1]], [["a", "b"], [1, 2]]):
+        for coords in ([], None, [[1]], [["a", "b"], [1, 2]], [[-87.63, 41.88], [-96.8, 32.78, 1]]):
             body = {"features": [{"geometry": {"coordinates": coords}}]}
             with self.subTest(coords=coords), patch(
                 "planner.routing.requests.post", return_value=fake_response(200, body)
