@@ -58,3 +58,9 @@ class GetRouteTests(SimpleTestCase):
         """Translate network timeouts to routing errors."""
         with self.assertRaises(RoutingError):
             get_route((41.9, -87.6), (32.8, -96.8))
+
+    @patch("planner.routing.requests.post", return_value=fake_response(200, {"unexpected": True}))
+    def test_malformed_success_response_is_routing_error(self, post):
+        """Report an unexpected successful response as a routing error."""
+        with self.assertRaisesRegex(RoutingError, "Unexpected response from the routing service"):
+            get_route((41.9, -87.6), (32.8, -96.8))

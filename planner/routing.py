@@ -32,7 +32,11 @@ def get_route(start: tuple[float, float], finish: tuple[float, float]) -> list[l
         raise NoRouteError(f"No driving route found: {error_message(response)}")
     if not response.ok:
         raise RoutingError(f"Routing service error ({response.status_code}): {error_message(response)}")
-    return response.json()["features"][0]["geometry"]["coordinates"]
+    try:
+        return response.json()["features"][0]["geometry"]["coordinates"]
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        # A successful response must contain route coordinates.
+        raise RoutingError("Unexpected response from the routing service.") from exc
 
 
 def error_message(response) -> str:
