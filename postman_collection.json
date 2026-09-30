@@ -1,0 +1,29 @@
+{
+  "info": {
+    "name": "Fuel Route Optimizer",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "base_url", "value": "http://127.0.0.1:8000" }],
+  "item": [
+    {
+      "name": "Chicago, IL -> Dallas, TX",
+      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=Chicago, IL&finish=Dallas, TX" }
+    },
+    {
+      "name": "New York, NY -> Los Angeles, CA (coast to coast)",
+      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=New York, NY&finish=Los Angeles, CA" }
+    },
+    {
+      "name": "Map view (HTML) - Chicago -> Dallas",
+      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=Chicago, IL&finish=Dallas, TX&format=map" }
+    },
+    {
+      "name": "Error 400 - bad format",
+      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=Chicago&finish=Dallas, TX" }
+    },
+    {
+      "name": "Error 404 - unknown city",
+      "request": { "method": "GET", "url": "{{base_url}}/api/route/?start=Atlantis, IL&finish=Dallas, TX" }
+    }
+  ]
+}
