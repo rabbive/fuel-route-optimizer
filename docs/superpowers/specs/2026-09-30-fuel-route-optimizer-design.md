@@ -1,7 +1,7 @@
 # Fuel Route Optimizer — Design
 
 Date: 2026-09-30
-Status: approved in chat, pending written-spec review
+Status: approved
 
 ## Goal
 
@@ -87,7 +87,7 @@ The command is idempotent: it clears and reloads both tables.
 1. **Validate.** A Django Form checks that both fields exist and match `City, ST` (a two-letter state). Failure → 400.
 2. **Cache.** The key is the normalized `(start, finish)`, held in Django's LocMem cache for 1 hour. On a hit, return the stored result with `cached: true` and `routing_api_calls: 0`.
 3. **Geocode.** `geocode.py` looks up both cities in `City`. Not found → 404.
-4. **Route.** `routing.py` sends a POST to ORS `/v2/directions/driving-car/geojson` with the two coordinates and a 10-second timeout. It returns the list of `[lon, lat]` points and the distance in miles. ORS error → 422 if no route exists, 502 for other failures or a timeout.
+4. **Route.** `routing.py` sends a POST to `{ORS_BASE_URL}/v2/directions/driving-car/geojson`, where `ORS_BASE_URL` defaults to `https://api.heigit.org/openrouteservice` (ORS is deprecating `api.openrouteservice.org` in favour of `api.heigit.org`), with the two coordinates and a 10-second timeout. It returns the list of `[lon, lat]` points and the distance in miles. ORS error → 422 if no route exists, 502 for other failures or a timeout.
 5. **Corridor** (`corridor.py`):
    - Resample the route to one point per mile along its length, so a point's index is its mile marker.
    - Query stations inside the route's bounding box, widened by the corridor width.
@@ -148,6 +148,7 @@ A single Leaflet page with OpenStreetMap tiles. It shows the route as a polyline
 ## Configuration
 
 - `ORS_API_KEY` is read from the environment. Settings load a local `.env` if one is present; this is a few lines of code, not a library. `.env.example` is committed and `.env` is gitignored.
+- `ORS_BASE_URL` (optional) overrides the ORS host; the default is `https://api.heigit.org/openrouteservice`.
 - Constants: `MAX_RANGE_MILES`, `MPG` in `optimizer.py`; `CORRIDOR_MILES` in `corridor.py`.
 
 ## Testing (Django test runner)
