@@ -70,12 +70,12 @@ class CityKeyTests(SimpleTestCase):
 class LoadDataTests(TestCase):
     """Check database loading, deduplication, and geocoding behavior."""
 
-    def run_load_data(self):
+    def run_load_data(self, fixes=CITY_FIXES):
         """Run load_data on small temporary input files and return its output."""
         tmp = Path(tempfile.mkdtemp())
         (tmp / "places.txt").write_text(PLACES)
         (tmp / "fuel.csv").write_text(FUEL)
-        (tmp / "city_fixes.csv").write_text(CITY_FIXES)
+        (tmp / "city_fixes.csv").write_text(fixes)
         out = StringIO()
         call_command("load_data", places=tmp / "places.txt", fuel=tmp / "fuel.csv", fixes=tmp / "city_fixes.csv", stdout=out)
         return out.getvalue()
@@ -118,8 +118,17 @@ class LoadDataTests(TestCase):
             find_city("Atlantis", "IL")
 
     def test_city_fixes_move_bad_center_points(self):
+        """Move a city's bad Census center to its downtown coordinates."""
         self.run_load_data()
         city = find_city("San Francisco", "CA")
         station = FuelStation.objects.get(opis_id=6)
         self.assertEqual((city.lat, city.lon), (37.7793, -122.4193))
         self.assertEqual((station.lat, station.lon), (37.7793, -122.4193))
+
+    def test_city_fixes_move_aliases_and_warn_for_unknown_cities(self):
+        fixes = "state,name,lat,lon\nID,Boise City,43.6150,-116.2023\nZZ,Nowhere,1,1\n"
+        output = self.run_load_data(fixes=fixes)
+
+        self.assertEqual(find_city("Boise", "ID").lat, 43.6150)
+        self.assertEqual(find_city("Boise City", "ID").lat, 43.6150)
+        self.assertIn("City fix not found: Nowhere, ZZ", output)

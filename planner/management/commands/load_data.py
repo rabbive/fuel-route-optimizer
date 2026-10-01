@@ -56,7 +56,8 @@ class Command(BaseCommand):
                 self.add_city(cities, name[len("Urban "):], row)
 
         fixed = 0
-        # Census interior points for a few places (e.g. San Francisco, whose limits include offshore islands) aren't near a road, so we move them to downtown.
+        # Census interior points for a few places (e.g. San Francisco, whose limits
+        # include offshore islands) aren't near a road, so we move them downtown.
         with open(fixes, encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 city = cities.get((city_key(row["name"]), row["state"].strip()))
