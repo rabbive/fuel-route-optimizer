@@ -21,17 +21,18 @@ class Command(BaseCommand):
         """Add optional paths for the places and fuel input files."""
         parser.add_argument("--places", type=Path, default=DATA_DIR / "us_places.txt")
         parser.add_argument("--fuel", type=Path, default=DATA_DIR / "fuel-prices.csv")
+        parser.add_argument("--fixes", type=Path, default=DATA_DIR / "city_fixes.csv")
 
     @transaction.atomic
     def handle(self, *args, **options):
         """Replace existing rows with the contents of both source files."""
-        cities = self.load_cities(options["places"])
+        cities, fixed = self.load_cities(options["places"], options["fixes"])
         loaded, skipped = self.load_stations(options["fuel"], cities)
         self.stdout.write(
-            f"Cities: {len(cities)}. Stations loaded: {loaded}. Skipped (city not found): {skipped}."
+            f"Cities: {len(cities)}. Stations loaded: {loaded}. Skipped (city not found): {skipped}. City fixes: {fixed}."
         )
 
-    def load_cities(self, path):
+    def load_cities(self, path, fixes):
         """Save one city per normalized name and state, including hyphen aliases."""
         with open(path, encoding="utf-8") as f:
             rows = list(csv.DictReader(f, delimiter="|"))
@@ -54,9 +55,24 @@ class Command(BaseCommand):
             if name.startswith("Urban "):  # "Urban Honolulu" -> "Honolulu"
                 self.add_city(cities, name[len("Urban "):], row)
 
+        fixed = 0
+        # Census interior points for a few places (e.g. San Francisco, whose limits include offshore islands) aren't near a road, so we move them to downtown.
+        with open(fixes, encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                city = cities.get((city_key(row["name"]), row["state"].strip()))
+                if city is None:
+                    self.stdout.write(f"City fix not found: {row['name']}, {row['state']}")
+                    continue
+                original = (city.lat, city.lon)
+                replacement = float(row["lat"]), float(row["lon"])
+                for alias in cities.values():
+                    if (alias.lat, alias.lon) == original:
+                        alias.lat, alias.lon = replacement
+                fixed += 1
+
         City.objects.all().delete()
         City.objects.bulk_create(cities.values())
-        return cities
+        return cities, fixed
 
     @staticmethod
     def add_city(cities, name, row):
