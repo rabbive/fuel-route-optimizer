@@ -96,6 +96,7 @@ First-request time is dominated by the free ORS server (39 ms is our own compute
 ## Limits / next steps
 
 - A few Census center points aren't near a road (e.g. San Francisco's includes offshore islands), so `planner/data/city_fixes.csv` moves them downtown. Places with no road connection (e.g. Juneau, AK, or Hawaii) return 422.
+- The supplied price list has very few stations in some states (8 in California, none in Alaska). Because the tank starts empty, a trip whose first 500 miles have no listed station returns 422 (e.g. San Francisco → Las Vegas: the first listed station is at mile 555).
 - The cache lives in memory in one process. Use Redis if the app runs on several servers.
 - Input is limited to "City, ST". Supporting street addresses would need a geocoding API (more calls).
 - Fuel prices are a static snapshot.
